@@ -34,4 +34,6 @@ pub mod wdt {
     pub const LOCATED_IN_TERRITORIAL_ENTITY: Property = Property(WDT, 131);
     pub const OCCUPANT: Property = Property(WDT, 466);
     pub const COORDINATE_LOCATION: Property = Property(WDT, 625);
+
+    pub const END_TIME: Property = Property(WDT, 582);
 }

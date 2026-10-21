@@ -21,6 +21,20 @@ impl Var {
     }
 }
 
+impl Property {
+    pub fn to_stmt(&self) -> Property {
+        Property("p", self.1)
+    }
+
+    pub fn stmt(&self) -> Property {
+        Property("ps", self.1)
+    }
+
+    pub fn qualifier(&self) -> Property {
+        Property("pq", self.1)
+    }
+}
+
 pub trait SparqlTerm {
     fn to_query(&self) -> String;
 }

@@ -27,17 +27,20 @@ async fn main() {
     .add(&stadium, &COORDINATE_LOCATION, &coordinates)
     .add(&stadium, &OCCUPANT, &occupant)
     .add(&occupant, &is_or_child_of, &ASSOCIATION_FOOTBALL_CLUB)
+    .union(vec![(&occupant, &LEAGUE_OR_COMPETITION, &MAJOR_LEAGUE_SOCCER),
+                (&occupant, &LEAGUE_OR_COMPETITION, &USL_CHAMPIONSHIP)])
     .filter_not_exists(
         Filter::new()
             .values(
                 Var::name("foo"),
                 vec![
-                    &COLLEGE_SPORTS_TEAM,
-                    &HIGH_SCHOOL_SPORTS_TEAM,
+                    // &COLLEGE_SPORTS_TEAM,
+                    // &HIGH_SCHOOL_SPORTS_TEAM,
                     &DEFUNCT_SPORTS_TEAM,
                 ],
             )
             .add(&occupant, &is_or_child_of, &Var::name("foo")),
+        //.add()
     )
     .service(&Tag("wikibase", "label".to_string()), Service::new()
         .add(&Tag("bd", "serviceParam".to_string()), &Tag("wikibase", "language".to_string()), &Constant("en")))
@@ -65,6 +68,3 @@ async fn main() {
         Err(e) => eprintln!("query failed: {e:?}"),
     };
 }
-
-//                {{ ?occupant {LEAGUE_OR_COMPETITION} {MAJOR_LEAGUE_SOCCER} }}
-//          UNION {{ ?occupant {LEAGUE_OR_COMPETITION} {USL_CHAMPIONSHIP} }}

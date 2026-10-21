@@ -72,7 +72,17 @@ impl Query<Where> {
                 service.statement
             )
         }
-    }         
+    } 
+
+    pub fn union(&self, clauses: Vec<(&impl SparqlTerm, &impl SparqlTerm, &impl SparqlTerm)>) -> Self {
+        Self {
+            _marker: PhantomData,
+            query: format!("{} {}", self.query, 
+                clauses.iter()
+                .map(|tuple| format!("{{ {} {} {} . }}", tuple.0.to_query(), tuple.1.to_query(), tuple.2.to_query()))
+                .join(" UNION "))
+        }
+    }
 
     pub fn filter_not_exists(&self, filter: &Filter) -> Self {
         Self {

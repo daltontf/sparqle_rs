@@ -91,6 +91,6 @@ macro_rules! impl_display_via_sparql_term {
 
 impl_display_via_sparql_term!(Var, Entity, Property, Tag, PropertyPath<'_>, Constant);
 
-pub mod namespace;
 #[cfg(feature = "fluent")]
 pub mod fluent;
+pub mod namespace;

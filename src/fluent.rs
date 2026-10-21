@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use sparql_client::{Error, SparqlBinding, SparqlClient};
 
-use crate::{Entity, SparqlTerm, Var, Tag};
+use crate::{Entity, SparqlTerm, Tag, Var};
 
 pub struct New;
 pub struct Select;
@@ -18,7 +18,7 @@ impl QueryState for Done {}
 use std::marker::PhantomData;
 pub struct Query<Q: QueryState> {
     _marker: PhantomData<Q>,
-    pub query: String,
+    pub statement: String,
 }
 
 // impl <Q: QueryState> Query<Q> {
@@ -29,7 +29,7 @@ impl Query<New> {
     pub fn select(vars: Vec<&Var>) -> Query<Select> {
         Query::<Select> {
             _marker: PhantomData,
-            query: format!("SELECT {}", vars.iter().map(|v| v.to_query()).join(" ")),
+            statement: format!("SELECT {}", vars.iter().map(|v| v.to_query()).join(" ")),
         }
     }
 }
@@ -38,7 +38,7 @@ impl Query<Select> {
     pub fn where_(&self) -> Query<Where> {
         Query::<Where> {
             _marker: PhantomData,
-            query: format!("{} WHERE {{", self.query),
+            statement: format!("{} WHERE {{", self.statement),
         }
     }
 }
@@ -46,18 +46,16 @@ impl Query<Select> {
 impl Query<Where> {
     pub fn add(
         &self,
-        t1: &impl SparqlTerm,
-        t2: &impl SparqlTerm,
-        t3: &impl SparqlTerm,
+        triple: (&impl SparqlTerm, &impl SparqlTerm, &impl SparqlTerm),
     ) -> Query<Where> {
         Query::<Where> {
             _marker: PhantomData,
-            query: format!(
+            statement: format!(
                 "{} {} {} {} .",
-                self.query,
-                t1.to_query(),
-                t2.to_query(),
-                t3.to_query()
+                self.statement,
+                triple.0.to_query(),
+                triple.1.to_query(),
+                triple.2.to_query()
             ),
         }
     }
@@ -65,32 +63,41 @@ impl Query<Where> {
     pub fn service(&self, tag: &Tag, service: &Service) -> Self {
         Self {
             _marker: PhantomData,
-            query: format!(
+            statement: format!(
                 "{} SERVICE {} {{ {} }}",
-                self.query, 
-                tag, 
-                service.statement
-            )
+                self.statement, tag, service.statement
+            ),
         }
-    } 
+    }
 
-    pub fn union(&self, clauses: Vec<(&impl SparqlTerm, &impl SparqlTerm, &impl SparqlTerm)>) -> Self {
+    pub fn union(
+        &self,
+        triples: Vec<(&impl SparqlTerm, &impl SparqlTerm, &impl SparqlTerm)>,
+    ) -> Self {
         Self {
             _marker: PhantomData,
-            query: format!("{} {}", self.query, 
-                clauses.iter()
-                .map(|tuple| format!("{{ {} {} {} . }}", tuple.0.to_query(), tuple.1.to_query(), tuple.2.to_query()))
-                .join(" UNION "))
+            statement: format!(
+                "{} {}",
+                self.statement,
+                triples
+                    .iter()
+                    .map(|triple| format!(
+                        "{{ {} {} {} . }}",
+                        triple.0.to_query(),
+                        triple.1.to_query(),
+                        triple.2.to_query()
+                    ))
+                    .join(" UNION ")
+            ),
         }
     }
 
     pub fn filter_not_exists(&self, filter: &Filter) -> Self {
         Self {
             _marker: PhantomData,
-            query: format!(
+            statement: format!(
                 "{} FILTER NOT EXISTS {{ {} }}",
-                self.query, 
-                filter.statement
+                self.statement, filter.statement
             ),
         }
     }
@@ -98,32 +105,28 @@ impl Query<Where> {
     pub fn order_by_asc(&self, var: &Var) -> Query<Done> {
         Query::<Done> {
             _marker: PhantomData,
-            query: format!(
-                "{} }} ORDER BY ASC({})",
-                self.query, 
-                var
-            ),
+            statement: format!("{} }} ORDER BY ASC({})", self.statement, var),
         }
     }
 
     pub fn limit(&self, limit: u32) -> Query<Done> {
         Query::<Done> {
             _marker: PhantomData,
-            query: format!("{} }} LIMIT {}", self.query, limit),
+            statement: format!("{} }} LIMIT {}", self.statement, limit),
         }
     }
 }
 
 impl Query<Done> {
     pub async fn query(&self, sparql_client: &SparqlClient) -> Result<Vec<SparqlBinding>, Error> {
-        eprintln!("Query:\n {}", &self.query);
-        sparql_client.sparql_query(&self.query).await
+        eprintln!("Query:\n {}", &self.statement);
+        sparql_client.sparql_query(&self.statement).await
     }
 
     pub fn limit(&self, limit: u32) -> Self {
         Self {
             _marker: PhantomData,
-            query: format!("{} LIMIT {}", self.query, limit),
+            statement: format!("{} LIMIT {}", self.statement, limit),
         }
     }
 }
@@ -173,7 +176,7 @@ pub struct Service {
 impl Service {
     pub fn new() -> Self {
         Service {
-            statement: "".to_string()
+            statement: "".to_string(),
         }
     }
 }

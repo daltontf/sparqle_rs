@@ -1,6 +1,6 @@
 use sparqlers::fluent::{New, Query, Service};
 use sparqlers::namespace::{wd::*, wdt::*};
-use sparqlers::{Constant, Entity, Property, Tag, Var};
+use sparqlers::{Entity, Literal, Property, Tag, Var};
 
 #[test]
 fn fluent() {
@@ -31,7 +31,7 @@ fn fluent() {
         Service::new().add(
             &Tag("bd", "serviceParam".to_string()),
             &Tag("wikibase", "language".to_string()),
-            &Constant("en"),
+            &Literal("en"),
         ),
     );
 
@@ -45,5 +45,34 @@ fn fluent() {
     assert_eq!(
         query.statement,
         "SELECT ?stadium ?stadiumLabel WHERE { ?stadium wdt:P31 wd:Q15896028 . SERVICE wikibase:label { bd:serviceParam wikibase:language \"en\" . } } LIMIT 10"
+    );
+}
+
+#[test]
+fn literal() {
+    let v = Var("v".to_string());
+    let p = Var("p".to_string());
+
+    let query = Query::<New>::select(vec![&v])
+        .where_()
+        .add((&v, &p, &Literal("cat")));
+
+    assert_eq!(query.statement, "SELECT ?v WHERE { ?v ?p \"cat\" .");
+
+    let query = Query::<New>::select(vec![&v])
+        .where_()
+        .add((&v, &p, &Literal("cat").lang("en")));
+
+    assert_eq!(query.statement, "SELECT ?v WHERE { ?v ?p \"cat\"@en .");
+
+    let query = Query::<New>::select(vec![&v]).where_().add((
+        &v,
+        &p,
+        &Literal("2019-06-12").typed("xsd:dateTime"),
+    ));
+
+    assert_eq!(
+        query.statement,
+        "SELECT ?v WHERE { ?v ?p \"2019-06-12\"^^xsd:dateTime ."
     );
 }

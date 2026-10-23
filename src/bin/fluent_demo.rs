@@ -1,7 +1,7 @@
 use sparql_client::SparqlClient;
 use sparqlers::fluent::{Filter, New, Query, Service};
 use sparqlers::namespace::{wd::*, wdt::*};
-use sparqlers::{Constant, PropertyPath, Tag, Var};
+use sparqlers::{Blank, Literal, PropertyPath, Tag, Var};
 
 #[tokio::main]
 async fn main() {
@@ -10,48 +10,66 @@ async fn main() {
     let stadium = Var::name("stadium");
     let coordinates = Var::name("coordinates");
     let occupant = Var::name("occupant");
+    let website = Var::name("website");
 
     let is_or_child_of = PropertyPath(vec![&INSTANCE_OF, &SUBCLASS_OF]);
 
-    match Query::<New>::select(vec![
+    match Query::<New>::select_distinct(vec![
         &stadium,
         &stadium.label(),
         &coordinates,
         &coordinates.label(),
         &occupant,
         &occupant.label(),
+        &website.label(),
     ])
     .where_()
-    .add((&stadium, &COUNTRY, &UNITED_STATES))
-    .add((&stadium, &is_or_child_of, &SPORTS_VENUE))
-    .add((&stadium, &COORDINATE_LOCATION, &coordinates))
-    .add((&stadium, &OCCUPANT, &occupant))
-    .add((&occupant, &is_or_child_of, &ASSOCIATION_FOOTBALL_CLUB))
-    .add((&stadium, &OCCUPANT.to_stmt(), &Var::name("stmt")))
-    .add((&Var::name("stmt"), &OCCUPANT.stmt(), &occupant))
+    .add(stadium.property(&COUNTRY).is(&UNITED_STATES))
+    .add(stadium.property_path(&is_or_child_of).is(&SPORTS_VENUE))
+    .add(stadium.property(&COORDINATE_LOCATION).set(&coordinates))
+    .add(
+        stadium
+            .property(&OCCUPANT.to_stmt())
+            .set(&Var::name("stmt")),
+    )
+    .add(Var::name("stmt").property(&OCCUPANT.stmt()).set(&occupant))
+    .add(
+        occupant
+            .property_path(&is_or_child_of)
+            .is(&ASSOCIATION_FOOTBALL_CLUB),
+    )
+    .optional(occupant.property(&OFFICIAL_WEBSITE).set(&website))
     .union(vec![
-        (&occupant, &LEAGUE_OR_COMPETITION, &MAJOR_LEAGUE_SOCCER),
-        (&occupant, &LEAGUE_OR_COMPETITION, &USL_CHAMPIONSHIP),
+        occupant
+            .property(&LEAGUE_OR_COMPETITION)
+            .is(&MAJOR_LEAGUE_SOCCER),
+        occupant
+            .property(&LEAGUE_OR_COMPETITION)
+            .is(&USL_CHAMPIONSHIP),
     ])
     .filter_not_exists(
         Filter::new()
             .values(
-                Var::name("foo"),
+                Var::name("values"),
                 vec![
                     // &COLLEGE_SPORTS_TEAM,
                     // &HIGH_SCHOOL_SPORTS_TEAM,
                     &DEFUNCT_SPORTS_TEAM,
                 ],
             )
-            .add(&occupant, &is_or_child_of, &Var::name("foo")),
+            .add(
+                occupant
+                    .property_path(&is_or_child_of)
+                    .set(&Var::name("values")),
+            ),
     )
-    .filter_not_exists(Filter::new().add(&occupant, &END_TIME.qualifier(), &Var::name("et")))
+    .filter_not_exists(Filter::new().add((&occupant, &END_TIME.qualifier(), &Blank)))
     .service(
         &Tag("wikibase", "label".to_string()),
         Service::new().add(
             &Tag("bd", "serviceParam".to_string()),
             &Tag("wikibase", "language".to_string()),
-            &Constant("en"),
+            &Literal("en"),
         ),
     )
     .order_by_asc(&occupant.label())

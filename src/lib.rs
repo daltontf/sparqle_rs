@@ -9,15 +9,45 @@ pub struct PropertyPath<'a>(pub Vec<&'a Property>);
 pub struct Entity(pub &'static str, pub u32);
 pub struct Var(pub String);
 pub struct Tag(pub &'static str, pub String);
-pub struct Constant(pub &'static str);
+pub struct Literal(pub &'static str);
+pub struct LangLiteral(pub &'static str, pub &'static str);
+pub struct TypedLiteral(pub &'static str, pub &'static str);
+pub struct Blank;
+
+pub struct Double<'a>(&'a dyn SparqlTerm, &'a dyn SparqlTerm);
+// pub struct Triple<'a>(&'a dyn SparqlTerm, &'a dyn SparqlTerm, &'a dyn SparqlTerm);
 
 impl Var {
+    pub fn name(val: &str) -> Self {
+        Var(val.to_string())
+    }
+
     pub fn label(&self) -> Var {
         Var(format!("{}Label", self.0))
     }
 
-    pub fn name(val: &str) -> Self {
-        Var(val.to_string())
+    pub fn property<'a>(&'a self, prop: &'a Property) -> Double<'a> {
+        Double(self, prop)
+    }
+
+    pub fn property_path<'a>(&'a self, prop: &'a PropertyPath) -> Double<'a> {
+        Double(self, prop)
+    }
+}
+
+impl Double<'_> {
+    pub fn is<'a>(
+        &'a self,
+        entity: &'a Entity,
+    ) -> (&'a dyn SparqlTerm, &'a dyn SparqlTerm, &'a dyn SparqlTerm) {
+        (self.0, self.1, entity)
+    }
+
+    pub fn set<'a>(
+        &'a self,
+        entity: &'a Var,
+    ) -> (&'a dyn SparqlTerm, &'a dyn SparqlTerm, &'a dyn SparqlTerm) {
+        (self.0, self.1, entity)
     }
 }
 
@@ -32,6 +62,16 @@ impl Property {
 
     pub fn qualifier(&self) -> Property {
         Property("pq", self.1)
+    }
+}
+
+impl Literal {
+    pub fn typed(&self, tipe: &'static str) -> TypedLiteral {
+        TypedLiteral(self.0, tipe)
+    }
+
+    pub fn lang(&self, lang: &'static str) -> LangLiteral {
+        LangLiteral(self.0, lang)
     }
 }
 
@@ -63,9 +103,27 @@ impl SparqlTerm for Tag {
     }
 }
 
-impl SparqlTerm for Constant {
+impl SparqlTerm for Literal {
     fn to_query(&self) -> String {
         format!("\"{}\"", self.0)
+    }
+}
+
+impl SparqlTerm for LangLiteral {
+    fn to_query(&self) -> String {
+        format!("\"{}\"@{}", self.0, self.1)
+    }
+}
+
+impl SparqlTerm for TypedLiteral {
+    fn to_query(&self) -> String {
+        format!("\"{}\"^^{}", self.0, self.1)
+    }
+}
+
+impl SparqlTerm for Blank {
+    fn to_query(&self) -> String {
+        "[]".to_string()
     }
 }
 
@@ -89,7 +147,7 @@ macro_rules! impl_display_via_sparql_term {
     };
 }
 
-impl_display_via_sparql_term!(Var, Entity, Property, Tag, PropertyPath<'_>, Constant);
+impl_display_via_sparql_term!(Var, Entity, Property, Tag, PropertyPath<'_>, Literal, Blank);
 
 #[cfg(feature = "fluent")]
 pub mod fluent;

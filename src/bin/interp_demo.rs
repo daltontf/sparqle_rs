@@ -24,7 +24,7 @@ async fn main() {
     match client
         .sparql_query(
              &format!(r#"
-            SELECT {stadium} {stadium_label} {coordinates} {coordinates_label} {occupant} {occupant_label} WHERE {{
+            SELECT DISTINCT {stadium} {stadium_label} {coordinates} {coordinates_label} {occupant} {occupant_label} WHERE {{
               {stadium} {is_or_child_of} {STADIUM} .
               {stadium} {COUNTRY} {UNITED_STATES} .
               {stadium} {COORDINATE_LOCATION} {coordinates} .
@@ -40,13 +40,13 @@ async fn main() {
               ?statement {occupant_stmt} {occupant} .
 
               FILTER NOT EXISTS {{
-               {occupant} {end_time_qualifier} ?endTime .
+               {occupant} {end_time_qualifier} [] .
               }}
     
               SERVICE wikibase:label {{
                 bd:serviceParam wikibase:language "en" .
               }}
-            }} LIMIT 100
+            }} ORDER BY ASC({stadium_label}) LIMIT 200 
           "#)).await {
         Ok(rows) => {
             for row in rows {
@@ -67,6 +67,3 @@ async fn main() {
         Err(e) => eprintln!("query failed: {e:?}"),
     };
 }
-
-//                {{ ?occupant {LEAGUE_OR_COMPETITION} {MAJOR_LEAGUE_SOCCER} }}
-//          UNION {{ ?occupant {LEAGUE_OR_COMPETITION} {USL_CHAMPIONSHIP} }}

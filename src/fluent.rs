@@ -21,16 +21,24 @@ pub struct Query<Q: QueryState> {
     pub statement: String,
 }
 
-// impl <Q: QueryState> Query<Q> {
-//
-// }
-
 impl Query<New> {
-    pub fn select(vars: Vec<&Var>) -> Query<Select> {
+    fn _select(select_type: &str, vars: Vec<&Var>) -> Query<Select> {
         Query::<Select> {
             _marker: PhantomData,
-            statement: format!("SELECT {}", vars.iter().map(|v| v.to_query()).join(" ")),
+            statement: format!(
+                "SELECT {}{}",
+                select_type,
+                vars.iter().map(|v| v.to_query()).join(" ")
+            ),
         }
+    }
+
+    pub fn select(vars: Vec<&Var>) -> Query<Select> {
+        Self::_select("", vars)
+    }
+
+    pub fn select_distinct(vars: Vec<&Var>) -> Query<Select> {
+        Self::_select("DISTINCT ", vars)
     }
 }
 
@@ -44,14 +52,27 @@ impl Query<Select> {
 }
 
 impl Query<Where> {
-    pub fn add(
-        &self,
-        triple: (&impl SparqlTerm, &impl SparqlTerm, &impl SparqlTerm),
-    ) -> Query<Where> {
+    pub fn add(&self, triple: (&dyn SparqlTerm, &dyn SparqlTerm, &dyn SparqlTerm)) -> Query<Where> {
         Query::<Where> {
             _marker: PhantomData,
             statement: format!(
                 "{} {} {} {} .",
+                self.statement,
+                triple.0.to_query(),
+                triple.1.to_query(),
+                triple.2.to_query()
+            ),
+        }
+    }
+
+    pub fn optional(
+        &self,
+        triple: (&dyn SparqlTerm, &dyn SparqlTerm, &dyn SparqlTerm),
+    ) -> Query<Where> {
+        Query::<Where> {
+            _marker: PhantomData,
+            statement: format!(
+                "{} OPTIONAL{{ {} {} {} .}}",
                 self.statement,
                 triple.0.to_query(),
                 triple.1.to_query(),
@@ -70,10 +91,7 @@ impl Query<Where> {
         }
     }
 
-    pub fn union(
-        &self,
-        triples: Vec<(&impl SparqlTerm, &impl SparqlTerm, &impl SparqlTerm)>,
-    ) -> Self {
+    pub fn union(&self, triples: Vec<(&dyn SparqlTerm, &dyn SparqlTerm, &dyn SparqlTerm)>) -> Self {
         Self {
             _marker: PhantomData,
             statement: format!(
@@ -155,15 +173,13 @@ impl Filter {
 
     pub fn add(
         &mut self,
-        t1: &impl SparqlTerm,
-        t2: &impl SparqlTerm,
-        t3: &impl SparqlTerm,
+        triple: (&dyn SparqlTerm, &dyn SparqlTerm, &dyn SparqlTerm),
     ) -> &mut Self {
         self.statement.push_str(&format!(
             "{} {} {} .",
-            t1.to_query(),
-            t2.to_query(),
-            t3.to_query()
+            triple.0.to_query(),
+            triple.1.to_query(),
+            triple.2.to_query()
         ));
         self
     }

@@ -19,6 +19,8 @@ pub mod wd {
     pub const UNITED_STATES: Entity = Entity(WD, 30);
     pub const MAJOR_LEAGUE_SOCCER: Entity = Entity(WD, 18543);
     pub const USL_CHAMPIONSHIP: Entity = Entity(WD, 1362411);
+
+    pub const DOUGLAS_ADAMS: Entity = Entity(WD, 42); // Don't Panic
 }
 
 pub mod wdt {
@@ -29,6 +31,7 @@ pub mod wdt {
     pub const COUNTRY: Property = Property(WDT, 17);
     pub const INSTANCE_OF: Property = Property(WDT, 31);
     pub const SUBCLASS_OF: Property = Property(WDT, 279);
+    pub const OFFICIAL_WEBSITE: Property = Property(WDT, 856);
 
     pub const LEAGUE_OR_COMPETITION: Property = Property(WDT, 118);
     pub const LOCATED_IN_TERRITORIAL_ENTITY: Property = Property(WDT, 131);

@@ -3,8 +3,42 @@ use std::fmt::{Display, Formatter};
 use itertools::Itertools;
 
 #[derive(Clone, Copy)]
-pub struct Property(pub &'static str, pub u32);
-pub struct PropertyPath<'a>(pub Vec<&'a Property>);
+pub enum PathRepeat {
+    ZeroOrMore,
+    OneOrMore,
+    ZeroOrOne,
+}
+
+impl PathRepeat {
+    pub fn character(&self) -> char {
+        match self {
+            PathRepeat::ZeroOrMore => '*',
+            PathRepeat::OneOrMore => '+',
+            PathRepeat::ZeroOrOne => '?',
+        }
+    }
+}
+
+pub trait PropertyOfType {}
+
+#[derive(Clone, Copy)]
+pub struct Plain(pub &'static str, pub u32);
+#[derive(Clone, Copy)]
+pub struct Repeated(pub &'static str, pub u32, pub PathRepeat);
+
+impl PropertyOfType for Plain {}
+impl PropertyOfType for Repeated {}
+
+#[derive(Clone, Copy)]
+pub struct Property<T: PropertyOfType>(pub T);
+
+pub trait PathElement: SparqlTerm {}
+
+impl PathElement for Property<Plain> {}
+impl PathElement for Property<Repeated> {}
+
+pub struct PropertySequence(pub Vec<Box<dyn PathElement>>);
+
 #[derive(Clone, Copy)]
 pub struct Entity(pub &'static str, pub u32);
 pub struct Var(pub String);
@@ -26,11 +60,14 @@ impl Var {
         Var(format!("{}Label", self.0))
     }
 
-    pub fn property<'a>(&'a self, prop: &'a Property) -> Double<'a> {
+    pub fn property<'a, T: PropertyOfType>(&'a self, prop: &'a Property<T>) -> Double<'a>
+    where
+        Property<T>: SparqlTerm,
+    {
         Double(self, prop)
     }
 
-    pub fn property_path<'a>(&'a self, prop: &'a PropertyPath) -> Double<'a> {
+    pub fn property_path<'a>(&'a self, prop: &'a PropertySequence) -> Double<'a> {
         Double(self, prop)
     }
 }
@@ -51,17 +88,47 @@ impl Double<'_> {
     }
 }
 
-impl Property {
-    pub fn to_stmt(&self) -> Property {
-        Property("p", self.1)
+impl Property<Plain> {
+    pub fn to_stmt(&self) -> Property<Plain> {
+        Property(Plain("p", self.0.1))
     }
 
-    pub fn stmt(&self) -> Property {
-        Property("ps", self.1)
+    pub fn stmt(&self) -> Property<Plain> {
+        Property(Plain("ps", self.0.1))
     }
 
-    pub fn qualifier(&self) -> Property {
-        Property("pq", self.1)
+    pub fn qualifier(&self) -> Property<Plain> {
+        Property(Plain("pq", self.0.1))
+    }
+
+    pub fn repeated(&self, repeat: PathRepeat) -> Property<Repeated> {
+        Property(Repeated(self.0.0, self.0.1, repeat))
+    }
+
+    pub fn append<P: PathElement + Clone + 'static>(&self, path_element: &P) -> PropertySequence {
+        PropertySequence(vec![Box::new(*self), Box::new(path_element.clone())])
+    }
+}
+
+impl Property<Repeated> {
+    pub fn to_stmt(&self) -> Property<Repeated> {
+        Property(Repeated("p", self.0.1, self.0.2))
+    }
+
+    pub fn stmt(&self) -> Property<Repeated> {
+        Property(Repeated("ps", self.0.1, self.0.2))
+    }
+
+    pub fn qualifier(&self) -> Property<Repeated> {
+        Property(Repeated("pq", self.0.1, self.0.2))
+    }
+
+    pub fn repeated(&self, repeat: PathRepeat) -> Property<Repeated> {
+        Property(Repeated(self.0.0, self.0.1, repeat))
+    }
+
+    pub fn append<P: PathElement + Clone + 'static>(&self, path_element: &P) -> PropertySequence {
+        PropertySequence(vec![Box::new(*self), Box::new(path_element.clone())])
     }
 }
 
@@ -91,9 +158,15 @@ impl SparqlTerm for Entity {
     }
 }
 
-impl SparqlTerm for Property {
+impl SparqlTerm for Property<Plain> {
     fn to_query(&self) -> String {
-        format!("{}:P{}", self.0, self.1)
+        format!("{}:P{}", self.0.0, self.0.1)
+    }
+}
+
+impl SparqlTerm for Property<Repeated> {
+    fn to_query(&self) -> String {
+        format!("{}:P{}{}", self.0.0, self.0.1, self.0.2.character())
     }
 }
 
@@ -127,11 +200,9 @@ impl SparqlTerm for Blank {
     }
 }
 
-impl SparqlTerm for PropertyPath<'_> {
+impl SparqlTerm for PropertySequence {
     fn to_query(&self) -> String {
-        let mut val = self.0.iter().map(|v| v.to_query()).join("/");
-        val.push_str("*");
-        val
+        self.0.iter().map(|v| v.to_query()).join("/")
     }
 }
 
@@ -147,7 +218,16 @@ macro_rules! impl_display_via_sparql_term {
     };
 }
 
-impl_display_via_sparql_term!(Var, Entity, Property, Tag, PropertyPath<'_>, Literal, Blank);
+impl_display_via_sparql_term!(
+    Var,
+    Entity,
+    Property<Plain>,
+    Property<Repeated>,
+    Tag,
+    PropertySequence,
+    Literal,
+    Blank
+);
 
 #[cfg(feature = "fluent")]
 pub mod fluent;

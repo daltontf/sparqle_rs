@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use sparql_client::{Error, SparqlBinding, SparqlClient};
+use std::marker::PhantomData;
 
 use crate::{Entity, SparqlTerm, Tag, Var};
 
@@ -15,7 +16,6 @@ impl QueryState for Select {}
 impl QueryState for Where {}
 impl QueryState for Done {}
 
-use std::marker::PhantomData;
 pub struct Query<Q: QueryState> {
     _marker: PhantomData<Q>,
     pub statement: String,

@@ -24,19 +24,19 @@ pub mod wd {
 }
 
 pub mod wdt {
-    use crate::Property;
+    use crate::{Plain, Property};
 
     pub const WDT: &str = "wdt";
 
-    pub const COUNTRY: Property = Property(WDT, 17);
-    pub const INSTANCE_OF: Property = Property(WDT, 31);
-    pub const SUBCLASS_OF: Property = Property(WDT, 279);
-    pub const OFFICIAL_WEBSITE: Property = Property(WDT, 856);
+    pub const COUNTRY: Property<Plain> = Property(Plain(WDT, 17));
+    pub const INSTANCE_OF: Property<Plain> = Property(Plain(WDT, 31));
+    pub const SUBCLASS_OF: Property<Plain> = Property(Plain(WDT, 279));
+    pub const OFFICIAL_WEBSITE: Property<Plain> = Property(Plain(WDT, 856));
 
-    pub const LEAGUE_OR_COMPETITION: Property = Property(WDT, 118);
-    pub const LOCATED_IN_TERRITORIAL_ENTITY: Property = Property(WDT, 131);
-    pub const OCCUPANT: Property = Property(WDT, 466);
-    pub const COORDINATE_LOCATION: Property = Property(WDT, 625);
+    pub const LEAGUE_OR_COMPETITION: Property<Plain> = Property(Plain(WDT, 118));
+    pub const LOCATED_IN_TERRITORIAL_ENTITY: Property<Plain> = Property(Plain(WDT, 31));
+    pub const OCCUPANT: Property<Plain> = Property(Plain(WDT, 466));
+    pub const COORDINATE_LOCATION: Property<Plain> = Property(Plain(WDT, 625));
 
-    pub const END_TIME: Property = Property(WDT, 582);
+    pub const END_TIME: Property<Plain> = Property(Plain(WDT, 582));
 }

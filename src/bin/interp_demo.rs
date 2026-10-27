@@ -1,6 +1,6 @@
 use sparql_client::SparqlClient;
 use sparqlers::namespace::{wd::*, wdt::*};
-use sparqlers::{PropertyPath, Var};
+use sparqlers::{PathRepeat, Var};
 
 #[tokio::main]
 async fn main() {
@@ -19,7 +19,7 @@ async fn main() {
 
     let end_time_qualifier = END_TIME.qualifier();
 
-    let is_or_child_of = PropertyPath(vec![&INSTANCE_OF, &SUBCLASS_OF]);
+    let is_or_child_of = INSTANCE_OF.append(&SUBCLASS_OF.repeated(PathRepeat::ZeroOrMore));
 
     match client
         .sparql_query(
@@ -33,7 +33,7 @@ async fn main() {
     
               FILTER NOT EXISTS {{
                 VALUES ?excludeTeam {{ {COLLEGE_SPORTS_TEAM} {HIGH_SCHOOL_SPORTS_TEAM} {DEFUNCT_SPORTS_TEAM} }}
-                {occupant} {INSTANCE_OF}/{SUBCLASS_OF}* ?excludeTeam .                
+                    {occupant} {is_or_child_of} ?excludeTeam .                
               }}
 
               {stadium} {occupant_to_stmt} ?statement .

@@ -1,13 +1,13 @@
 use sparqlers::fluent::{New, Query, Service};
 use sparqlers::namespace::{wd::*, wdt::*};
-use sparqlers::{Entity, Literal, Property, Tag, Var};
+use sparqlers::{Entity, Literal, Plain, Property, Tag, Var};
 
 #[test]
 fn fluent() {
     let stadium = Var::name("stadium");
     let stadium_label = stadium.label();
 
-    let instance_of = Property(WDT, 31);
+    let instance_of = Property(Plain(WDT, 31));
 
     let defunct_sports_team = Entity(WD, 15896028);
 

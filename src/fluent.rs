@@ -2,7 +2,7 @@ use itertools::Itertools;
 use sparql_client::{Error, SparqlBinding, SparqlClient};
 use std::marker::PhantomData;
 
-use crate::{Entity, SparqlTerm, Tag, Var};
+use crate::{Entity, SparqlTerm, Tag, Var, WithPredicateObjects};
 
 pub struct New;
 pub struct Select;
@@ -22,7 +22,7 @@ pub struct Query<Q: QueryState> {
 }
 
 impl Query<New> {
-    fn _select(select_type: &str, vars: Vec<&Var>) -> Query<Select> {
+    fn _select(select_type: &str, vars: &[&Var]) -> Query<Select> {
         Query::<Select> {
             _marker: PhantomData,
             statement: format!(
@@ -33,11 +33,11 @@ impl Query<New> {
         }
     }
 
-    pub fn select(vars: Vec<&Var>) -> Query<Select> {
+    pub fn select(vars: &[&Var]) -> Query<Select> {
         Self::_select("", vars)
     }
 
-    pub fn select_distinct(vars: Vec<&Var>) -> Query<Select> {
+    pub fn select_distinct(vars: &[&Var]) -> Query<Select> {
         Self::_select("DISTINCT ", vars)
     }
 }
@@ -62,6 +62,13 @@ impl Query<Where> {
                 triple.1.to_query(),
                 triple.2.to_query()
             ),
+        }
+    }
+
+    pub fn add_all(&self, with_predicate_objects: WithPredicateObjects) -> Query<Where> {
+        Query::<Where> {
+            _marker: PhantomData,
+            statement: format!("{} {}", self.statement, with_predicate_objects.to_query(),),
         }
     }
 
@@ -91,7 +98,7 @@ impl Query<Where> {
         }
     }
 
-    pub fn union(&self, triples: Vec<(&dyn SparqlTerm, &dyn SparqlTerm, &dyn SparqlTerm)>) -> Self {
+    pub fn union(&self, triples: &[(&dyn SparqlTerm, &dyn SparqlTerm, &dyn SparqlTerm)]) -> Self {
         Self {
             _marker: PhantomData,
             statement: format!(
@@ -162,7 +169,7 @@ impl Filter {
 }
 
 impl Filter {
-    pub fn values(&mut self, var: Var, names: Vec<&Entity>) -> &mut Self {
+    pub fn values(&mut self, var: Var, names: &[&Entity]) -> &mut Self {
         self.statement.push_str(&format!(
             "VALUES {} {{ {} }}",
             var.to_query(),

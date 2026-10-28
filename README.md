@@ -21,7 +21,9 @@ An even more experimental "fluent" way can be enabled by the `fluent` feature.
 
 This uses the Typestate pattern to help prevent illegal SQARQL syntax at compile time. 
 
-Can enough of the SPARQL specification be implemented this way to be useful?
+Can enough of the SPARQL specification be implemented this way to be useful? 
+
+This might proved to be quixotic but a good exercise for me to master the Typestate pattern. 
 
 ---
 

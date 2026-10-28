@@ -14,7 +14,7 @@ async fn main() {
 
     let is_or_child_of = INSTANCE_OF.append(&SUBCLASS_OF.repeated(PathRepeat::ZeroOrMore));
 
-    match Query::<New>::select_distinct(vec![
+    match Query::<New>::select_distinct(&[
         &stadium,
         &stadium.label(),
         &coordinates,
@@ -24,9 +24,14 @@ async fn main() {
         &website.label(),
     ])
     .where_()
-    .add(stadium.property(&COUNTRY).is(&UNITED_STATES))
-    .add(stadium.property_path(&is_or_child_of).is(&SPORTS_VENUE))
-    .add(stadium.property(&COORDINATE_LOCATION).set(&coordinates))
+    .add_all(stadium.properties(&[
+        COUNTRY.is(&UNITED_STATES),
+        is_or_child_of.is(&SPORTS_VENUE),
+        COORDINATE_LOCATION.set(&coordinates),
+    ]))
+    // .add(stadium.property(&COUNTRY).is(&UNITED_STATES))
+    // .add(stadium.property_path(&is_or_child_of).is(&SPORTS_VENUE))
+    // .add(stadium.property(&COORDINATE_LOCATION).set(&coordinates))
     .add(
         stadium
             .property(&OCCUPANT.to_stmt())
@@ -39,7 +44,7 @@ async fn main() {
             .is(&ASSOCIATION_FOOTBALL_CLUB),
     )
     .optional(occupant.property(&OFFICIAL_WEBSITE).set(&website))
-    .union(vec![
+    .union(&[
         occupant
             .property(&LEAGUE_OR_COMPETITION)
             .is(&MAJOR_LEAGUE_SOCCER),
@@ -51,7 +56,7 @@ async fn main() {
         Filter::new()
             .values(
                 Var::name("values"),
-                vec![
+                &[
                     // &COLLEGE_SPORTS_TEAM,
                     // &HIGH_SCHOOL_SPORTS_TEAM,
                     &DEFUNCT_SPORTS_TEAM,

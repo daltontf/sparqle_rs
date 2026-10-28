@@ -48,7 +48,11 @@ pub struct LangLiteral(pub &'static str, pub &'static str);
 pub struct TypedLiteral(pub &'static str, pub &'static str);
 pub struct Blank;
 
-pub struct Double<'a>(&'a dyn SparqlTerm, &'a dyn SparqlTerm);
+pub struct SubjectPredicate<'a>(&'a dyn SparqlTerm, &'a dyn SparqlTerm);
+pub struct WithPredicateObjects<'a>(
+    &'a dyn SparqlTerm,
+    Vec<(&'a dyn SparqlTerm, &'a dyn SparqlTerm)>,
+);
 // pub struct Triple<'a>(&'a dyn SparqlTerm, &'a dyn SparqlTerm, &'a dyn SparqlTerm);
 
 impl Var {
@@ -60,19 +64,26 @@ impl Var {
         Var(format!("{}Label", self.0))
     }
 
-    pub fn property<'a, T: PropertyOfType>(&'a self, prop: &'a Property<T>) -> Double<'a>
+    pub fn property<'a, T: PropertyOfType>(&'a self, prop: &'a Property<T>) -> SubjectPredicate<'a>
     where
         Property<T>: SparqlTerm,
     {
-        Double(self, prop)
+        SubjectPredicate(self, prop)
     }
 
-    pub fn property_path<'a>(&'a self, prop: &'a PropertySequence) -> Double<'a> {
-        Double(self, prop)
+    pub fn properties<'a>(
+        &'a self,
+        predicate_objects: &[(&'a dyn SparqlTerm, &'a dyn SparqlTerm)],
+    ) -> WithPredicateObjects<'a> {
+        WithPredicateObjects(self, Vec::from(predicate_objects))
+    }
+
+    pub fn property_path<'a>(&'a self, prop: &'a PropertySequence) -> SubjectPredicate<'a> {
+        SubjectPredicate(self, prop)
     }
 }
 
-impl Double<'_> {
+impl SubjectPredicate<'_> {
     pub fn is<'a>(
         &'a self,
         entity: &'a Entity,
@@ -108,6 +119,14 @@ impl Property<Plain> {
     pub fn append<P: PathElement + Clone + 'static>(&self, path_element: &P) -> PropertySequence {
         PropertySequence(vec![Box::new(*self), Box::new(path_element.clone())])
     }
+
+    pub fn is<'a>(&'a self, entity: &'a Entity) -> (&'a dyn SparqlTerm, &'a dyn SparqlTerm) {
+        (self, entity)
+    }
+
+    pub fn set<'a>(&'a self, entity: &'a Var) -> (&'a dyn SparqlTerm, &'a dyn SparqlTerm) {
+        (self, entity)
+    }
 }
 
 impl Property<Repeated> {
@@ -129,6 +148,24 @@ impl Property<Repeated> {
 
     pub fn append<P: PathElement + Clone + 'static>(&self, path_element: &P) -> PropertySequence {
         PropertySequence(vec![Box::new(*self), Box::new(path_element.clone())])
+    }
+
+    pub fn is<'a>(&'a self, entity: &'a Entity) -> (&'a dyn SparqlTerm, &'a dyn SparqlTerm) {
+        (self, entity)
+    }
+
+    pub fn set<'a>(&'a self, entity: &'a Var) -> (&'a dyn SparqlTerm, &'a dyn SparqlTerm) {
+        (self, entity)
+    }
+}
+
+impl PropertySequence {
+    pub fn is<'a>(&'a self, entity: &'a Entity) -> (&'a dyn SparqlTerm, &'a dyn SparqlTerm) {
+        (self, entity)
+    }
+
+    pub fn set<'a>(&'a self, entity: &'a Var) -> (&'a dyn SparqlTerm, &'a dyn SparqlTerm) {
+        (self, entity)
     }
 }
 
@@ -203,6 +240,28 @@ impl SparqlTerm for Blank {
 impl SparqlTerm for PropertySequence {
     fn to_query(&self) -> String {
         self.0.iter().map(|v| v.to_query()).join("/")
+    }
+}
+
+impl SparqlTerm for SubjectPredicate<'_> {
+    fn to_query(&self) -> String {
+        format!("{} {}", self.0.to_query(), self.1.to_query())
+    }
+}
+
+impl SparqlTerm for WithPredicateObjects<'_> {
+    fn to_query(&self) -> String {
+        let mut start = self.0.to_query();
+        start.push_str(" ");
+        start.push_str(
+            &self
+                .1
+                .iter()
+                .map(|v| format!("{} {}", v.0.to_query(), v.1.to_query()))
+                .join(" ; "),
+        );
+        start.push_str(" .");
+        start
     }
 }
 

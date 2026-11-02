@@ -6,7 +6,7 @@ use itertools::Itertools;
 pub enum PathSuffix {
     ZeroOrMore,
     OneOrMore,
-    ZeroOrOne 
+    ZeroOrOne,
 }
 
 impl PathSuffix {
@@ -37,24 +37,43 @@ impl PathPrefix {
 pub trait PropertyOfType {}
 
 #[derive(Clone, Copy)]
-pub struct Plain(pub &'static str, pub u32);
+pub struct Property<T: PropertyOfType>(pub T);
+
+#[derive(Clone, Copy)]
+pub struct Basic<'a>(pub &'static str, pub &'a str);
+#[derive(Clone, Copy)]
+pub struct Wikidata(pub &'static str, pub u32);
 #[derive(Clone, Copy)]
 pub struct Suffixed(pub &'static str, pub u32, pub PathSuffix);
 #[derive(Clone, Copy)]
 pub struct Prefixed(pub &'static str, pub u32, pub PathPrefix);
 
-impl PropertyOfType for Plain {}
+impl PropertyOfType for Basic<'_> {}
+impl PropertyOfType for Wikidata {}
 impl PropertyOfType for Suffixed {}
 impl PropertyOfType for Prefixed {}
 
-#[derive(Clone, Copy)]
-pub struct Property<T: PropertyOfType>(pub T);
+pub trait PathElement: SparqlTerm {
+    fn boxed_with_namespace(&self, ns: &'static str) -> Box<dyn PathElement>;
+}
 
-pub trait PathElement: SparqlTerm {}
+impl PathElement for Property<Wikidata> {
+    fn boxed_with_namespace(&self, ns: &'static str) -> Box<dyn PathElement> {
+        Box::new(self.with_namespace(ns))
+    }
+}
 
-impl PathElement for Property<Plain> {}
-impl PathElement for Property<Suffixed> {}
-impl PathElement for Property<Prefixed> {}
+impl PathElement for Property<Suffixed> {
+    fn boxed_with_namespace(&self, ns: &'static str) -> Box<dyn PathElement> {
+        Box::new(self.with_namespace(ns))
+    }
+}
+
+impl PathElement for Property<Prefixed> {
+    fn boxed_with_namespace(&self, ns: &'static str) -> Box<dyn PathElement> {
+        Box::new(self.with_namespace(ns))
+    }
+}
 
 pub struct PropertySequence(pub Vec<Box<dyn PathElement>>);
 pub struct PropertyOr(pub Vec<Box<dyn PathElement>>);
@@ -66,48 +85,46 @@ pub struct Tag(pub &'static str, pub String);
 pub struct Literal(pub &'static str);
 pub struct LangLiteral(pub &'static str, pub &'static str);
 pub struct TypedLiteral(pub &'static str, pub &'static str);
-pub struct Blank;
-pub struct RDFSLabel;
+pub struct Blank<'a>(pub &'a [(&'a dyn Predicate, &'a dyn Object)]);
 
-impl SparqlTerm for RDFSLabel {
-    fn to_statement(&self) -> String {
-        "rdfs:label".to_string()
-    }
-}
-
-pub trait Subject : SparqlTerm {}
+pub trait Subject: SparqlTerm {}
 impl Subject for Var {}
 impl Subject for Entity {}
 
-pub trait Predicate : SparqlTerm {}
-impl Predicate for RDFSLabel {}
-impl Predicate for Property<Plain> {}
+pub trait Predicate: SparqlTerm {}
+impl<'a> Predicate for Property<Basic<'a>> {}
+impl Predicate for Property<Wikidata> {}
 impl Predicate for Property<Suffixed> {}
 impl Predicate for Property<Prefixed> {}
-impl Predicate for PropertySequence {}  
-impl Predicate for PropertyOr {}  
+impl Predicate for PropertySequence {}
+impl Predicate for PropertyOr {}
 
-pub trait Object : SparqlTerm {}  
-impl Object for Entity {}    
+pub trait Object: SparqlTerm {}
+impl Object for Entity {}
 impl Object for Var {}
 impl Object for Literal {}
 impl Object for LangLiteral {}
 impl Object for TypedLiteral {}
-impl Object for Blank {}
+impl Object for Blank<'_> {}
 
 pub struct SubjectPredicate<'a>(&'a dyn Subject, &'a dyn Predicate);
 
-pub struct WithPredicateObjects<'a>(
-    &'a dyn Subject,
-    Vec<(&'a dyn Predicate, &'a dyn Object)>,
-);
+pub struct WithPredicateObjects<'a>(&'a dyn Subject, Vec<(&'a dyn Predicate, &'a dyn Object)>);
 
-pub trait Qualifiable {
-    fn to_stmt(&self) -> Self;
+pub trait Qualifiable: Sized {
+    fn with_namespace(&self, ns: &'static str) -> Self;
 
-    fn stmt(&self) -> Self;
+    fn link_statement(&self) -> Self {
+        self.with_namespace("p")
+    }
 
-    fn qualifier(&self) -> Self;
+    fn to_statement(&self) -> Self {
+        self.with_namespace("ps")
+    }
+
+    fn to_qualified(&self) -> Self {
+        self.with_namespace("pq")
+    }
 }
 
 impl Var {
@@ -151,10 +168,10 @@ impl SubjectPredicate<'_> {
     }
 }
 
-impl Property<Plain> {
+impl Property<Wikidata> {
     pub fn suffixed(&self, suffix: PathSuffix) -> Property<Suffixed> {
         Property(Suffixed(self.0.0, self.0.1, suffix))
-    }  
+    }
 
     pub fn prefixed(&self, prefix: PathPrefix) -> Property<Prefixed> {
         Property(Prefixed(self.0.0, self.0.1, prefix))
@@ -162,11 +179,11 @@ impl Property<Plain> {
 
     pub fn append<P: PathElement + Clone + 'static>(&self, path_element: &P) -> PropertySequence {
         PropertySequence(vec![Box::new(*self), Box::new(path_element.clone())])
-    } 
+    }
 
     pub fn or<P: PathElement + Clone + 'static>(&self, path_element: &P) -> PropertyOr {
         PropertyOr(vec![Box::new(*self), Box::new(path_element.clone())])
-    }   
+    }
 
     pub fn is<'a>(&'a self, entity: &'a dyn Object) -> (&'a dyn Predicate, &'a dyn Object) {
         (self, entity)
@@ -177,17 +194,9 @@ impl Property<Plain> {
     }
 }
 
-impl Qualifiable for Property<Plain> {
-    fn to_stmt(&self) -> Self {
-        Property(Plain("p", self.0.1))
-    }
-
-    fn stmt(&self) -> Self {
-        Property(Plain("ps", self.0.1))
-    }
-
-    fn qualifier(&self) -> Self {
-        Property(Plain("pq", self.0.1))
+impl Qualifiable for Property<Wikidata> {
+    fn with_namespace(&self, ns: &'static str) -> Self {
+        Property(Wikidata(ns, self.0.1))
     }
 }
 
@@ -210,16 +219,8 @@ impl Property<Suffixed> {
 }
 
 impl Qualifiable for Property<Suffixed> {
-    fn to_stmt(&self) -> Property<Suffixed> {
-        Property(Suffixed("p", self.0.1, self.0.2))
-    }
-
-    fn stmt(&self) -> Property<Suffixed> {
-        Property(Suffixed("ps", self.0.1, self.0.2))
-    }
-
-    fn qualifier(&self) -> Property<Suffixed> {
-        Property(Suffixed("pq", self.0.1, self.0.2))
+    fn with_namespace(&self, ns: &'static str) -> Self {
+        Property(Suffixed(ns, self.0.1, self.0.2))
     }
 }
 
@@ -242,16 +243,19 @@ impl Property<Prefixed> {
 }
 
 impl Qualifiable for Property<Prefixed> {
-    fn to_stmt(&self) -> Property<Prefixed> {
-        Property(Prefixed("p", self.0.1, self.0.2))
+    fn with_namespace(&self, ns: &'static str) -> Self {
+        Property(Prefixed(ns, self.0.1, self.0.2))
     }
+}
 
-    fn stmt(&self) -> Property<Prefixed> {
-        Property(Prefixed("ps", self.0.1, self.0.2))
-    }
-
-    fn qualifier(&self) -> Property<Prefixed> {
-        Property(Prefixed("pq", self.0.1, self.0.2))
+impl Qualifiable for PropertyOr {
+    fn with_namespace(&self, ns: &'static str) -> Self {
+        PropertyOr(
+            self.0
+                .iter()
+                .map(|it| it.boxed_with_namespace(ns))
+                .collect(),
+        )
     }
 }
 
@@ -265,7 +269,7 @@ impl PropertySequence {
     }
 }
 
-impl PropertyOr {    
+impl PropertyOr {
     pub fn is<'a>(&'a self, entity: &'a dyn Object) -> (&'a dyn Predicate, &'a dyn Object) {
         (self, entity)
     }
@@ -286,96 +290,108 @@ impl Literal {
 }
 
 pub trait SparqlTerm {
-    fn to_statement(&self) -> String;
+    fn to_sparql(&self) -> String;
 }
 
 impl SparqlTerm for Var {
-    fn to_statement(&self) -> String {
+    fn to_sparql(&self) -> String {
         format!("?{}", self.0)
     }
 }
 
 impl SparqlTerm for Entity {
-    fn to_statement(&self) -> String {
+    fn to_sparql(&self) -> String {
         format!("{}:Q{}", self.0, self.1)
     }
 }
 
-impl SparqlTerm for Property<Plain> {
-    fn to_statement(&self) -> String {
+impl SparqlTerm for Property<Basic<'_>> {
+    fn to_sparql(&self) -> String {
+        format!("{}:{}", self.0.0, self.0.1)
+    }
+}
+
+impl SparqlTerm for Property<Wikidata> {
+    fn to_sparql(&self) -> String {
         format!("{}:P{}", self.0.0, self.0.1)
     }
 }
 
 impl SparqlTerm for Property<Suffixed> {
-    fn to_statement(&self) -> String {
+    fn to_sparql(&self) -> String {
         format!("{}:P{}{}", self.0.0, self.0.1, self.0.2.character())
     }
 }
 
 impl SparqlTerm for Property<Prefixed> {
-    fn to_statement(&self) -> String {
-        format!("{}{}:P{}", self.0.2.character(), self.0.0, self.0.1 )
+    fn to_sparql(&self) -> String {
+        format!("{}{}:P{}", self.0.2.character(), self.0.0, self.0.1)
     }
 }
 
 impl SparqlTerm for Tag {
-    fn to_statement(&self) -> String {
+    fn to_sparql(&self) -> String {
         format!("{}:{}", self.0, self.1)
     }
 }
 
 impl SparqlTerm for Literal {
-    fn to_statement(&self) -> String {
+    fn to_sparql(&self) -> String {
         format!("\"{}\"", self.0)
     }
 }
 
 impl SparqlTerm for LangLiteral {
-    fn to_statement(&self) -> String {
+    fn to_sparql(&self) -> String {
         format!("\"{}\"@{}", self.0, self.1)
     }
 }
 
 impl SparqlTerm for TypedLiteral {
-    fn to_statement(&self) -> String {
+    fn to_sparql(&self) -> String {
         format!("\"{}\"^^{}", self.0, self.1)
     }
 }
 
-impl SparqlTerm for Blank {
-    fn to_statement(&self) -> String {
-        "[]".to_string()
+impl SparqlTerm for Blank<'_> {
+    fn to_sparql(&self) -> String {
+        format!(
+            "[ {} ]",
+            self.0
+                .iter()
+                .map(|v| format!("{} {}", v.0.to_sparql(), v.1.to_sparql()))
+                .join(" ; ")
+        )
     }
 }
 
 impl SparqlTerm for PropertySequence {
-    fn to_statement(&self) -> String {
-        self.0.iter().map(|v| v.to_statement()).join("/")
+    fn to_sparql(&self) -> String {
+        self.0.iter().map(|v| v.to_sparql()).join("/")
     }
 }
 
 impl SparqlTerm for PropertyOr {
-    fn to_statement(&self) -> String {
-        self.0.iter().map(|v| v.to_statement()).join("|")
+    fn to_sparql(&self) -> String {
+        self.0.iter().map(|v| v.to_sparql()).join("|")
     }
 }
 
 impl SparqlTerm for SubjectPredicate<'_> {
-    fn to_statement(&self) -> String {
-        format!("{} {}", self.0.to_statement(), self.1.to_statement())
+    fn to_sparql(&self) -> String {
+        format!("{} {}", self.0.to_sparql(), self.1.to_sparql())
     }
 }
 
 impl SparqlTerm for WithPredicateObjects<'_> {
-    fn to_statement(&self) -> String {
-        let mut start = self.0.to_statement();
+    fn to_sparql(&self) -> String {
+        let mut start = self.0.to_sparql();
         start.push_str(" ");
         start.push_str(
             &self
                 .1
                 .iter()
-                .map(|v| format!("{} {}", v.0.to_statement(), v.1.to_statement()))
+                .map(|v| format!("{} {}", v.0.to_sparql(), v.1.to_sparql()))
                 .join(" ; "),
         );
         start.push_str(" .");
@@ -384,34 +400,22 @@ impl SparqlTerm for WithPredicateObjects<'_> {
 }
 
 impl SparqlTerm for (&dyn Subject, &dyn Predicate, &dyn Object) {
-    fn to_statement(&self) -> String {
-        format!("{} {} {} .", self.0.to_statement(), self.1.to_statement(), self.2.to_statement())
+    fn to_sparql(&self) -> String {
+        format!(
+            "{} {} {} .",
+            self.0.to_sparql(),
+            self.1.to_sparql(),
+            self.2.to_sparql()
+        )
     }
 }
-
-// impl<T1: PropertyOfType, T2: PropertyOfType> SparqlTerm for Statement<'_, T1, T2>
-// where
-//     Property<T1>: SparqlTerm,
-//     Property<T2>: SparqlTerm
-// {
-//     fn to_statement(&self) -> String {    
-//         format!(
-//             "{} {} {} ; {} {} .",
-//             self.0.to_statement(),
-//             self.1.to_statement(),
-//             self.2.to_statement(),
-//             self.3.to_statement(),
-//             self.4.to_statement()
-//         )
-//     }    
-// }
 
 macro_rules! impl_display_via_sparql_term {
     ($($t:ty),* $(,)?) => {
         $(
             impl Display for $t {
                 fn fmt(&self, formatter: &mut Formatter) -> Result<(), std::fmt::Error> {
-                    formatter.write_str(&self.to_statement())
+                    formatter.write_str(&self.to_sparql())
                 }
             }
         )*
@@ -421,13 +425,13 @@ macro_rules! impl_display_via_sparql_term {
 impl_display_via_sparql_term!(
     Var,
     Entity,
-    Property<Plain>,
+    Property<Wikidata>,
     Property<Suffixed>,
     Property<Prefixed>,
     Tag,
     PropertySequence,
     Literal,
-    Blank
+    Blank<'_>,
 );
 
 #[cfg(feature = "fluent")]

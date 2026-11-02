@@ -24,19 +24,19 @@ pub mod wd {
 }
 
 pub mod wdt {
-    use crate::{Plain, Property};
+    use crate::{Property, Wikidata};
 
     pub const WDT: &str = "wdt";
 
-    pub const COUNTRY: Property<Plain> = Property(Plain(WDT, 17));
-    pub const INSTANCE_OF: Property<Plain> = Property(Plain(WDT, 31));
-    pub const SUBCLASS_OF: Property<Plain> = Property(Plain(WDT, 279));
-    pub const OFFICIAL_WEBSITE: Property<Plain> = Property(Plain(WDT, 856));
+    pub const COUNTRY: Property<Wikidata> = Property(Wikidata(WDT, 17));
+    pub const INSTANCE_OF: Property<Wikidata> = Property(Wikidata(WDT, 31));
+    pub const SUBCLASS_OF: Property<Wikidata> = Property(Wikidata(WDT, 279));
+    pub const OFFICIAL_WEBSITE: Property<Wikidata> = Property(Wikidata(WDT, 856));
 
-    pub const LEAGUE_OR_COMPETITION: Property<Plain> = Property(Plain(WDT, 118));
-    pub const LOCATED_IN_TERRITORIAL_ENTITY: Property<Plain> = Property(Plain(WDT, 31));
-    pub const OCCUPANT: Property<Plain> = Property(Plain(WDT, 466));
-    pub const COORDINATE_LOCATION: Property<Plain> = Property(Plain(WDT, 625));
+    pub const LEAGUE_OR_COMPETITION: Property<Wikidata> = Property(Wikidata(WDT, 118));
+    pub const LOCATED_IN_TERRITORIAL_ENTITY: Property<Wikidata> = Property(Wikidata(WDT, 31));
+    pub const OCCUPANT: Property<Wikidata> = Property(Wikidata(WDT, 466));
+    pub const COORDINATE_LOCATION: Property<Wikidata> = Property(Wikidata(WDT, 625));
 
-    pub const END_TIME: Property<Plain> = Property(Plain(WDT, 582));
+    pub const END_TIME: Property<Wikidata> = Property(Wikidata(WDT, 582));
 }

@@ -1,6 +1,6 @@
 use sparql_client::SparqlClient;
 use sparqlers::namespace::{wd::*, wdt::*};
-use sparqlers::{PathSuffix, Var, Qualifiable};
+use sparqlers::{PathSuffix, Qualifiable, Var};
 
 #[tokio::main]
 async fn main() {
@@ -14,10 +14,10 @@ async fn main() {
     let coordinates_label = coordinates.label();
     let occupant_label = occupant.label();
 
-    let occupant_to_stmt = OCCUPANT.to_stmt();
-    let occupant_stmt = OCCUPANT.stmt();
+    let occupant_to_stmt = OCCUPANT.link_statement();
+    let occupant_stmt = OCCUPANT.to_statement();
 
-    let end_time_qualifier = END_TIME.qualifier();
+    let end_time_qualifier = END_TIME.to_qualified();
 
     let is_or_child_of = INSTANCE_OF.append(&SUBCLASS_OF.suffixed(PathSuffix::ZeroOrMore));
 

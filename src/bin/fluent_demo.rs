@@ -1,7 +1,7 @@
 use sparql_client::SparqlClient;
 use sparqlers::fluent::{Filter, New, Query, Service};
 use sparqlers::namespace::{wd::*, wdt::*};
-use sparqlers::{Blank, Literal, PathSuffix, Tag, Var, Qualifiable};
+use sparqlers::{Blank, Literal, PathSuffix, Qualifiable, Tag, Var};
 
 #[tokio::main]
 async fn main() {
@@ -34,10 +34,14 @@ async fn main() {
     // .add(stadium.property(&COORDINATE_LOCATION).set(&coordinates))
     .add(
         stadium
-            .property(&OCCUPANT.to_stmt())
+            .property(&OCCUPANT.link_statement())
             .set(&Var::name("stmt")),
     )
-    .add(Var::name("stmt").property(&OCCUPANT.stmt()).set(&occupant))
+    .add(
+        Var::name("stmt")
+            .property(&OCCUPANT.to_statement())
+            .set(&occupant),
+    )
     .add(
         occupant
             .property_path(&is_or_child_of)
@@ -68,7 +72,7 @@ async fn main() {
                     .set(&Var::name("values")),
             ),
     )
-    .filter_not_exists(Filter::new().add((&occupant, &END_TIME.qualifier(), &Blank)))
+    .filter_not_exists(Filter::new().add((&occupant, &END_TIME.to_qualified(), &Blank(&[]))))
     .service(
         &Tag("wikibase", "label".to_string()),
         Service::new().add(

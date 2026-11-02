@@ -1,7 +1,7 @@
 use sparql_client::SparqlClient;
 use sparqlers::fluent::{Filter, New, Query, Service};
 use sparqlers::namespace::{wd::*, wdt::*};
-use sparqlers::{Blank, Literal, PathRepeat, Tag, Var};
+use sparqlers::{Blank, Literal, PathSuffix, Tag, Var, Qualifiable};
 
 #[tokio::main]
 async fn main() {
@@ -12,7 +12,7 @@ async fn main() {
     let occupant = Var::name("occupant");
     let website = Var::name("website");
 
-    let is_or_child_of = INSTANCE_OF.append(&SUBCLASS_OF.repeated(PathRepeat::ZeroOrMore));
+    let is_or_child_of = INSTANCE_OF.append(&SUBCLASS_OF.suffixed(PathSuffix::ZeroOrMore));
 
     match Query::<New>::select_distinct(&[
         &stadium,

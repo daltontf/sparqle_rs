@@ -1,6 +1,6 @@
 use sparqlers::fluent::{New, Query, Service};
 use sparqlers::namespace::{wd::*, wdt::*};
-use sparqlers::{Entity, Literal, Plain, Property, SparqlTerm, Tag, Var};
+use sparqlers::{Entity, Literal, PathPrefix, PathSuffix, Plain, Property, SparqlTerm, Statement, Tag, Var};
 
 #[test]
 fn fluent() {
@@ -51,19 +51,19 @@ fn fluent() {
 #[test]
 fn literal() {
     let v = Var("v".to_string());
-    let p = Var("p".to_string());
+    let p = Property(Plain(WDT, 23));
 
     let query = Query::<New>::select(&[&v])
         .where_()
         .add((&v, &p, &Literal("cat")));
 
-    assert_eq!(query.statement, "SELECT ?v WHERE { ?v ?p \"cat\" .");
+    assert_eq!(query.statement, "SELECT ?v WHERE { ?v wdt:P23 \"cat\" .");
 
     let query = Query::<New>::select(&[&v])
         .where_()
         .add((&v, &p, &Literal("cat").lang("en")));
 
-    assert_eq!(query.statement, "SELECT ?v WHERE { ?v ?p \"cat\"@en .");
+    assert_eq!(query.statement, "SELECT ?v WHERE { ?v wdt:P23 \"cat\"@en .");
 
     let query = Query::<New>::select(&[&v]).where_().add((
         &v,
@@ -73,7 +73,7 @@ fn literal() {
 
     assert_eq!(
         query.statement,
-        "SELECT ?v WHERE { ?v ?p \"2019-06-12\"^^xsd:dateTime ."
+        "SELECT ?v WHERE { ?v wdt:P23 \"2019-06-12\"^^xsd:dateTime ."
     );
 }
 
@@ -88,7 +88,51 @@ fn predicate_objects() {
     let clause = player.properties(&[foo.is(&object), bar.set(&var_object)]);
 
     assert_eq!(
-        clause.to_query(),
+        clause.to_statement(),
         "?player wdt:P23 wd:Q123 ; wdt:P42 ?object ."
     );
+}
+
+#[test]
+fn prefix_suffix() {
+    let player = Var("player".to_string());
+    let prop = Property(Plain(WDT, 23)).suffixed(PathSuffix::OneOrMore);
+    let object = Entity(WD, 123); 
+
+    let obj_pred = player.property(&prop);
+    let clause = obj_pred.is(&object);
+
+    assert_eq!(
+        clause.to_statement(),
+        "?player wdt:P23+ wd:Q123 ."
+    );
+
+    let inv_prop = Property(Plain(WDT, 42)).prefixed(PathPrefix::Inverse);
+    
+    let obj_pred = player.property(&inv_prop);
+    let clause = obj_pred.is(&object);
+
+    assert_eq!(
+        clause.to_statement(),
+        "?player ^wdt:P42 wd:Q123 ."
+    );
+}
+
+#[test]
+fn statement() {
+    let media = Var("media".to_string());
+    let actor = Var("actor".to_string());
+    let role = Var("role".to_string());
+    let character_role = Property(Plain(WDT, 453));
+    let cast_member = Property(Plain(WDT, 161));
+    let voice_actor = Property(Plain(WDT, 725));
+
+    let clause = Statement(&media, &cast_member, &actor, &character_role, &role);
+    // TODO support multiple properties in the statement, e.g. (ps:P161|ps:P725)
+    
+    // assert_eq!(
+    //     clause.to_statement(),
+    //     "?media p:P161 [ ps:P161 ?actor ; pq:P453 ?role ] ."
+    // );
+
 }

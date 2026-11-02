@@ -1,6 +1,6 @@
 use sparql_client::SparqlClient;
 use sparqlers::namespace::{wd::*, wdt::*};
-use sparqlers::{PathRepeat, Var};
+use sparqlers::{PathSuffix, Var, Qualifiable};
 
 #[tokio::main]
 async fn main() {
@@ -19,7 +19,7 @@ async fn main() {
 
     let end_time_qualifier = END_TIME.qualifier();
 
-    let is_or_child_of = INSTANCE_OF.append(&SUBCLASS_OF.repeated(PathRepeat::ZeroOrMore));
+    let is_or_child_of = INSTANCE_OF.append(&SUBCLASS_OF.suffixed(PathSuffix::ZeroOrMore));
 
     match client
         .sparql_query(

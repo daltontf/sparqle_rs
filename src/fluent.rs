@@ -2,7 +2,7 @@ use itertools::Itertools;
 use sparql_client::{Error, SparqlBinding, SparqlClient};
 use std::marker::PhantomData;
 
-use crate::{Entity, SparqlTerm, Tag, Var, WithPredicateObjects};
+use crate::{Entity, SparqlTerm, Tag, Var, WithPredicateObjects, Subject, Predicate, Object};
 
 pub struct New;
 pub struct Select;
@@ -28,7 +28,7 @@ impl Query<New> {
             statement: format!(
                 "SELECT {}{}",
                 select_type,
-                vars.iter().map(|v| v.to_query()).join(" ")
+                vars.iter().map(|v| v.to_statement()).join(" ")
             ),
         }
     }
@@ -52,15 +52,15 @@ impl Query<Select> {
 }
 
 impl Query<Where> {
-    pub fn add(&self, triple: (&dyn SparqlTerm, &dyn SparqlTerm, &dyn SparqlTerm)) -> Query<Where> {
+    pub fn add(&self, triple: (&dyn Subject, &dyn Predicate, &dyn Object)) -> Query<Where> {
         Query::<Where> {
             _marker: PhantomData,
             statement: format!(
                 "{} {} {} {} .",
                 self.statement,
-                triple.0.to_query(),
-                triple.1.to_query(),
-                triple.2.to_query()
+                triple.0.to_statement(),
+                triple.1.to_statement(),
+                triple.2.to_statement()
             ),
         }
     }
@@ -68,22 +68,22 @@ impl Query<Where> {
     pub fn add_all(&self, with_predicate_objects: WithPredicateObjects) -> Query<Where> {
         Query::<Where> {
             _marker: PhantomData,
-            statement: format!("{} {}", self.statement, with_predicate_objects.to_query(),),
+            statement: format!("{} {}", self.statement, with_predicate_objects.to_statement(),),
         }
     }
 
     pub fn optional(
         &self,
-        triple: (&dyn SparqlTerm, &dyn SparqlTerm, &dyn SparqlTerm),
+        triple: (&dyn Subject, &dyn Predicate, &dyn Object),
     ) -> Query<Where> {
         Query::<Where> {
             _marker: PhantomData,
             statement: format!(
                 "{} OPTIONAL{{ {} {} {} .}}",
                 self.statement,
-                triple.0.to_query(),
-                triple.1.to_query(),
-                triple.2.to_query()
+                triple.0.to_statement(),
+                triple.1.to_statement(),
+                triple.2.to_statement()
             ),
         }
     }
@@ -98,7 +98,7 @@ impl Query<Where> {
         }
     }
 
-    pub fn union(&self, triples: &[(&dyn SparqlTerm, &dyn SparqlTerm, &dyn SparqlTerm)]) -> Self {
+    pub fn union(&self, triples: &[(&dyn Subject, &dyn Predicate, &dyn Object)]) -> Self {
         Self {
             _marker: PhantomData,
             statement: format!(
@@ -108,9 +108,9 @@ impl Query<Where> {
                     .iter()
                     .map(|triple| format!(
                         "{{ {} {} {} . }}",
-                        triple.0.to_query(),
-                        triple.1.to_query(),
-                        triple.2.to_query()
+                        triple.0.to_statement(),
+                        triple.1.to_statement(),
+                        triple.2.to_statement()
                     ))
                     .join(" UNION ")
             ),
@@ -172,21 +172,21 @@ impl Filter {
     pub fn values(&mut self, var: Var, names: &[&Entity]) -> &mut Self {
         self.statement.push_str(&format!(
             "VALUES {} {{ {} }}",
-            var.to_query(),
-            names.iter().map(|it| it.to_query()).join(" ")
+            var.to_statement(),
+            names.iter().map(|it| it.to_statement()).join(" ")
         ));
         self
     }
 
     pub fn add(
         &mut self,
-        triple: (&dyn SparqlTerm, &dyn SparqlTerm, &dyn SparqlTerm),
+        triple: (&dyn Subject, &dyn Predicate, &dyn Object)
     ) -> &mut Self {
         self.statement.push_str(&format!(
             "{} {} {} .",
-            triple.0.to_query(),
-            triple.1.to_query(),
-            triple.2.to_query()
+            triple.0.to_statement(),
+            triple.1.to_statement(),
+            triple.2.to_statement()
         ));
         self
     }
@@ -207,15 +207,15 @@ impl Service {
 impl Service {
     pub fn add(
         &mut self,
-        t1: &impl SparqlTerm,
-        t2: &impl SparqlTerm,
-        t3: &impl SparqlTerm,
+        t1: &dyn SparqlTerm,
+        t2: &dyn SparqlTerm,
+        t3: &dyn SparqlTerm,
     ) -> &mut Self {
         self.statement.push_str(&format!(
             "{} {} {} .",
-            t1.to_query(),
-            t2.to_query(),
-            t3.to_query()
+            t1.to_statement(),
+            t2.to_statement(),
+            t3.to_statement()
         ));
         self
     }
